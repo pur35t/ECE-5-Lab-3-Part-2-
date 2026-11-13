@@ -1,0 +1,121 @@
+%% ECE 5 Image Processing Lab - all tasks
+% Every image is chosen with a file picker, so it works from any folder.
+% Run the whole script, or one section at a time (Ctrl+Enter).
+% Don't cancel a picker window, or you'll get an error.
+
+clear; close all; clc;
+set(0,'DefaultFigureWindowStyle','normal');   % avoids the docked-figure truesize warning
+
+%% Challenge 1a: 8x8 checkerboard
+A = zeros(8);
+A(1:2:end, 1:2:end) = 255;
+A(2:2:end, 2:2:end) = 255;
+figure; imshow(uint8(A)); title('8x8 Checkerboard');
+
+%% Challenge 1b: 6x6x3 color pattern
+[X, Y] = meshgrid(1:6, 1:6);
+C = zeros(6,6,3);
+C(:,:,1) = X * 255/6;                    % red increases left -> right
+C(:,:,2) = Y * 255/6;                    % green increases top -> bottom
+C(:,:,3) = 255 - (X + Y) * 255/12;       % blue fades along diagonal
+figure; imshow(uint8(C)); title('6x6x3 Color Pattern');
+
+%% Challenge 2a: split your own image into R, G, B layers
+[f, p] = uigetfile({'*.jpg;*.jpeg;*.png;*.JPG;*.PNG','Images'}, 'Pick YOUR photo (Envision / bird)');
+if isequal(f,0), error('No file selected'); end
+IMG = imread(fullfile(p, f));
+
+R = IMG(:,:,1); G = IMG(:,:,2); B = IMG(:,:,3);
+Z = zeros(size(IMG,1), size(IMG,2), 'uint8');
+Rimg = cat(3, R, Z, Z);
+Gimg = cat(3, Z, G, Z);
+Bimg = cat(3, Z, Z, B);
+figure;
+subplot(2,2,1); imshow(IMG);  title('Original');
+subplot(2,2,2); imshow(Rimg); title('Red layer');
+subplot(2,2,3); imshow(Gimg); title('Green layer');
+subplot(2,2,4); imshow(Bimg); title('Blue layer');
+
+%% Challenge 2b: scale one layer by a factor < 1
+R2 = R * 0.2;
+IMG_mod = cat(3, R2, G, B);
+figure;
+subplot(1,2,1); imshow(IMG);     title('Original');
+subplot(1,2,2); imshow(IMG_mod); title('Red scaled by 0.2');
+
+%% Challenge 2c: teeth whitening
+[f, p] = uigetfile({'*.jpg;*.jpeg;*.png','Images'}, 'Pick stained_teeth.jpg');
+if isequal(f,0), error('No file selected'); end
+T = imread(fullfile(p, f));
+
+Tr = T(:,:,1); Tg = T(:,:,2); Tb = T(:,:,3);
+Tb2 = Tb * 1.3;                          % scale blue by > 1 (clips at 255)
+T_white = cat(3, Tr, Tg, Tb2);
+figure;
+subplot(1,2,1); imshow(T);       title('Original');
+subplot(1,2,2); imshow(T_white); title('Whitened');
+
+%% Challenge 3a: contrast stretching
+[f, p] = uigetfile({'*.jpg;*.jpeg;*.png','Images'}, 'Pick low_contrast.jpg');
+if isequal(f,0), error('No file selected'); end
+L = imread(fullfile(p, f));
+if size(L,3) == 3, L = rgb2gray(L); end
+Lstretch = imadjust(L, stretchlim(L), []);
+figure;
+subplot(2,2,1); imshow(L);        title('Original');
+subplot(2,2,2); imhist(L);        title('Original histogram');
+subplot(2,2,3); imshow(Lstretch); title('Contrast stretched');
+subplot(2,2,4); imhist(Lstretch); title('Stretched histogram');
+
+%% Challenge 3b: histogram equalization
+Leq = histeq(L);
+figure;
+subplot(1,2,1); imshow(Leq); title('Histogram equalized');
+subplot(1,2,2); imhist(Leq); title('Equalized histogram');
+
+%% Challenge 4: noise removal (median then mean filter)
+[f, p] = uigetfile({'*.jpg;*.jpeg;*.png','Images'}, 'Pick salt_and_pepper.jpg');
+if isequal(f,0), error('No file selected'); end
+N = imread(fullfile(p, f));
+
+if size(N,3) == 3
+    Nmed = medfilt3(N, [3 3 1]);         % filter each color channel separately
+else
+    Nmed = medfilt2(N, [3 3]);
+end
+h = fspecial('average', [3 3]);          % mean averaging kernel
+Nclean = imfilter(Nmed, h);
+
+if size(N,3) == 3, Ngray = rgb2gray(N); Ncgray = rgb2gray(Nclean);
+else,              Ngray = N;           Ncgray = Nclean; end
+
+figure;
+subplot(2,2,1); imshow(N);      title('Noisy');
+subplot(2,2,2); imshow(Nclean); title('Median + mean filtered');
+subplot(2,2,3); imhist(Ngray);  title('Noisy histogram');
+subplot(2,2,4); imhist(Ncgray); title('Cleaned histogram');
+
+%% Challenge 5: webcam photobooth
+clear cam;
+webcamlist
+cam = webcam(1);                         % try 2 or 3 if wrong camera
+preview(cam); pause(3);                  % let camera adjust
+pic = snapshot(cam);
+imwrite(pic, 'myfirstimage.jpg');        % saved in your current folder
+closePreview(cam); delete(cam);
+
+img = imresize(pic, [480 640]);
+R = img(:,:,1); G = img(:,:,2); B = img(:,:,3);
+z = zeros(480, 640, 'uint8');
+
+cyan = cat(3, z, G, B);
+x = rgb2gray(img);
+black_and_white = cat(3, x, x, x);
+imgEnhanced = imadjust(img, [0.20 0.00 0.09; 0.83 1.00 0.52], ...
+    [0.00 0.00 1.00; 1.00 1.00 0.00], [1.10 2.70 1.00]);
+colorImg = decorrstretch(img);
+colorImg = imadjust(colorImg, [0.10; 0.79], [0.00; 1.00], 1.10);
+flippedImage = fliplr(img);
+
+CompositeImage = [img; cyan; imgEnhanced; black_and_white; colorImg; flippedImage];
+figure; imshow(CompositeImage);
